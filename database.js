@@ -1,14 +1,14 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 //order schema
-const order = new Schema({
-    order_id: String,
-    workflow: String,
-    items: Array,
-    desired_date: Date,
-    status: { type: String, default: 'pending' },
-    version: { type: Number, default: 0 }  // Version field to track changes
-});
+// const order = new Schema({
+//     order_id: String,
+//     workflow: String,
+//     items: Array,
+//     desired_date: Date,
+//     status: { type: String, default: 'pending' },
+//     version: { type: Number, default: 0 }  // Version field to track changes
+// });
 //process-steps 
 //run once per day, get processStepsConfiguration.find(workflow,action).order by numerical_order  steps: [{}]
 
@@ -36,6 +36,7 @@ const processStepsConfiguration = new Schema({
 const stateManagerSchema = new Schema({
     order_id: { type: String, required: true },
     order: { type: Schema.Types.Mixed, default: null },
+    workflow: { type: String, required: true },
     status: { type: String, enum: ['pending', 'in_progress', 'completed', 'failed'], default: 'pending' },
     start_time: { type: Date, default: Date.now },
     end_time: { type: Date, default: null },
@@ -57,13 +58,11 @@ const apiCallSchema = new Schema({
 
 const ApiCall = mongoose.model('ApiCall', apiCallSchema);
 const StateManager = mongoose.model('StateManager', stateManagerSchema);
-const Order = mongoose.model('Order', order);
 const ProcessStepsConfiguration = mongoose.model('ProcessStepsConfiguration', processStepsConfiguration);
 
 module.exports = {
     ApiCall,
     StateManager,
-    Order,
     ProcessStepsConfiguration
 }
 
