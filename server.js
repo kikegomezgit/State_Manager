@@ -198,100 +198,96 @@ async function processStateOrders() {
             )
         );
         console.log('[START] ' + stateOrdersLength + ' State orders')
-
-
-        for (const stateOrder of stateOrders) {
-            const { order, steps } = stateOrder;
-            const step_finish_length = steps.length
-            let step_data = {};
-            try {
-                for (const step of steps) {
-                    console.log(`Order ${stateOrder.order_id} Processing step: ${step.step_name}`);
-                    if (step.step_name === "wait") {
-                        await functionPool.wait(Number(step.action));
-                        await markStepAsCompleted(step, stateOrder, step_data);
-                        continue;
-                    }
-                    const { url, method, request_attributes, response_attributes } = step.api_call_id;
-
-                    // Prepare Axios request
-                    let requestBody = {};
-                    let requestHeaders = {};
-                    let requestQuery = {};
-
-                    // Use the request_attributes to set request data dynamically
-                    if (request_attributes.body) {
-                        request_attributes.body.map(item => {
-                            let { attribute, source = 'order', process_function } = item
-                            source = source === 'result' ? result : source === 'step_data' ? step_data : order
-                            requestBody[attribute] = process_function ? functionPool[process_function](source[attribute]) : source[attribute]
-                        });
-                    }
-                    const result = await axios({
-                        method: method.toLowerCase(),
-                        url,
-                        data: requestBody,
-                        headers: requestHeaders,
-                        params: requestQuery
-                    }).then(res => res.data)
-                        .catch(async error => {
-                            step.status = 'failed';
-                            stateOrder.status = 'failed'
-
-                            errorMessage = {
-                                code: error?.response?.status,
-                                r_message: error?.response?.data,
-                                message: error?.code
-                            }
-                            step.error = errorMessage;
-                            step.response = null
-                            step.end_time = new Date()
-                            console.log('Finished ' + stateOrder?.order_id + ' with status ' + stateOrder.status)
-                            await stateOrder.save()
-                            throw new Error(`Workflow failed at step ${step.step_name}`)
-                        });
-
-                    // Handle response attributes to save to step_data for the next step
-                    if (response_attributes) {
-                        response_attributes.map(item => {
-                            let { attribute, process_function, source = 'result' } = item
-                            source = source === 'result' ? result : source === 'step_data' ? step_data : order
-                            return step_data[attribute] = process_function ? functionPool[process_function](source[attribute]) : source[attribute]
-                        });
-                    }
-                    console.log(result)
-
-                    step.response = result ?? null
-                    step.error = null
-                    await markStepAsCompleted(step, stateOrder, step_data);
-                    console.log('[order] ' + stateOrder.order_id + ' finished processing: ' + step.step_name)
-                    // if (step_finish_length === step.numerical_order) workflow.status = 'completed'
-
-
-                }
-            } catch (err) {
-                console.log(err)
-                continue;
-            }
-
-        }
-        console.log('[END] ' + stateOrdersLength + ' State orders')
-        // const workflow = await StateManager.findById(stateOrder._id)
-        //     .populate('steps.api_call_id')
-        //     .exec();
-        // if (!workflow) return "Order not found"
-        //filter pending or failure and reoirdering
-        // const steps = stateManager.steps
-        //     .filter(step => step.status === 'pending')
-        //     .sort((a, b) => a.numerical_order - b.numerical_order);
-
-
+        await Promise.allSettled(
+            stateOrders.map(stateOrder => concurrentProcessStateOrder(stateOrder))
+        );
+        console.log('[END] ' + stateOrders.length + ' State orders');
     } catch (error) {
         // console.log(error)
         throw error
     }
 }
 
+async function concurrentProcessStateOrder(stateOrder) {
+    const { order, steps } = stateOrder;
+    const step_finish_length = steps.length;
+    let step_data = {};
+
+    try {
+        for (const step of steps) {
+            console.log(`Order ${stateOrder.order_id} Processing step: ${step.step_name}`);
+            if (step.step_name === "wait") {
+                await functionPool.wait(Number(step.action));
+                await markStepAsCompleted(step, stateOrder, step_data);
+                continue;
+            }
+
+            const { url, method, request_attributes, response_attributes } = step.api_call_id;
+
+            // Prepare Axios request
+            let requestBody = {};
+            let requestHeaders = {};
+            let requestQuery = {};
+
+            // Use the request_attributes to set request data dynamically
+            if (request_attributes.body) {
+                request_attributes.body.map(item => {
+                    let { attribute, source = 'order', process_function } = item;
+                    source = source === 'result' ? result : source === 'step_data' ? step_data : order;
+                    requestBody[attribute] = process_function
+                        ? functionPool[process_function](source[attribute])
+                        : source[attribute];
+                });
+            }
+
+            // Make API call
+            const result = await axios({
+                method: method.toLowerCase(),
+                url,
+                data: requestBody,
+                headers: requestHeaders,
+                params: requestQuery
+            }).then(res => res.data)
+                .catch(async error => {
+                    step.status = 'failed';
+                    stateOrder.status = 'failed';
+
+                    const errorMessage = {
+                        code: error?.response?.status,
+                        r_message: error?.response?.data,
+                        message: error?.code
+                    };
+
+                    step.error = errorMessage;
+                    step.response = null;
+                    step.end_time = new Date();
+
+                    console.log('Finished ' + stateOrder?.order_id + ' with status ' + stateOrder.status);
+                    await stateOrder.save();
+                    throw new Error(`Workflow failed at step ${step.step_name}`);
+                });
+
+            // Handle response attributes to save to step_data for the next step
+            if (response_attributes) {
+                response_attributes.map(item => {
+                    let { attribute, process_function, source = 'result' } = item;
+                    source = source === 'result' ? result : source === 'step_data' ? step_data : order;
+                    step_data[attribute] = process_function
+                        ? functionPool[process_function](source[attribute])
+                        : source[attribute];
+                });
+            }
+
+
+            step.response = result ?? null;
+            step.error = null;
+            await markStepAsCompleted(step, stateOrder, step_data);
+            console.log('[order] ' + stateOrder.order_id + ' finished processing: ' + step.step_name);
+        }
+    } catch (err) {
+        console.log(err);
+    }
+}
 
 // Cache the workflow steps at server start
 async function cacheProcessStepsConfigurations() {
