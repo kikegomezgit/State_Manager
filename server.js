@@ -1,4 +1,8 @@
+// reprocess
 
+
+// -self protection to check if there are orders with in_progress with more than 30 minutes from now
+// change them to pending
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -11,64 +15,65 @@ require('dotenv').config()
 const { ProcessStepsConfiguration, ApiCall, Order, StateManager } = require('./database');
 const app = express();
 const PORT = 3001;
-// Load proto file for gRPC
-// const PROTO_PATH = './state_manager.proto';  // Path to your proto file
 const MONGO_SRV = process.env.MONGO_SRV
-// const packageDefinition = protoLoader.loadSync(PROTO_PATH);
-// const stateManagerProto = grpc.loadPackageDefinition(packageDefinition).StateManagerService;
 const process_limit = 5
+const process_interval = 30_000
 const cache = {};  // Cache for workflows
 const apiCallsCache = {}
 
-// Middleware to parse JSON
 app.use(cors());
 app.use(bodyParser.json());
-// Connect to MongoDB
-mongoose.connect(MONGO_SRV, {
-}).then(() => {
-    console.log('MongoDB connected');
-}).catch((err) => {
-    console.error('MongoDB connection error:', err);
-});
+const connectDatabase = async _ => {
+    mongoose.connect(MONGO_SRV, {
+    }).then(() => {
+        console.log('MongoDB connected');
+    }).catch((err) => {
+        console.error('MongoDB connection error:', err);
+    });
 
-// Webhook endpoint to receive orders
+}
+
+
+// Webhook endpoint to receive orders and create orders 
 app.post('/webhook', async (req, res) => {
-    const { order_id, workflow, items } = req.body;
+
+    //check on queue , initial, injection, finish
+    const { order_id, workflow, order } = req.body?.order;
 
     if (!order_id || !workflow) {
         return res.status(400).json({ message: 'Missing required fields' });
     }
     res.status(200).json({ message: 'Order received and saved successfully' });
     try {
-        // Save the order to the database
-        // const newOrder = new Order({
-        //     order_id,
-        //     workflow,
-        //     items
-        // });
 
-        // await newOrder.save();
-        // {
-        //     "order_id": "111144444-15",
-        //     "workflow": "ecommerce",
-        //     "desired_date": "2024-11-23T16:00:00Z",
-        //     "items": [
-        //         {
-        //             "item_id": "P003-94",
-        //             "name": "item random",
-        //             "quantity": 2,
-        //             "price": 100
-        //         },
-        //         {
-        //             "item_id": "P003-96",
-        //             "name": "item random 2",
-        //             "quantity": 3,
-        //             "price": 50
-        //         }
-        //     ]
-        // }
-        // let stateManager = await StateManager.findOne({order_id});
-        // if (!stateManager) {
+        if (!cache[workflow]) throw new Error('Invalid worfklow');
+
+        let stateManager = new StateManager({
+            order_id,
+            workflow,
+            queue: req.body?.queue,
+            order,
+            steps: cache[workflow],  // Use cached steps
+            status: 'pending'
+        });
+        stateManager.save()
+    } catch (err) {
+        console.error('Error processing webhook:', err);
+        //save order on a log
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+//reprocess by queeus mandatory
+app.put('/reprocess', async (req, res) => {
+    const { orders = [], workflow, action = 'some' } = req.body;
+
+    if (!order_id || !workflow) {
+        return res.status(400).json({ message: 'Missing required fields' });
+    }
+    res.status(200).json({ message: 'Order received and saved successfully' });
+    try {
+
         if (!cache[workflow]) throw new Error('Invalid worfklow');
 
         let stateManager = new StateManager({
@@ -79,7 +84,6 @@ app.post('/webhook', async (req, res) => {
             status: 'pending'
         });
         stateManager.save()
-        // }
     } catch (err) {
         console.error('Error processing webhook:', err);
         //save order on a log
@@ -117,95 +121,33 @@ app.get('/order', async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 });
-// Function to process orders in batches of 3
-// async function processOrdersInBatches() {
-//     console.log('Entered on pending order check->')
-//     try {
-//         let ordersToProcess = [];
-//         //config how many orders to process
-//         for (let i = 0; i <= numberOfOrdersToProcess; i++) {
-//             const order = await Order.findOneAndUpdate(
-//                 { status: 'pending', version: { $eq: 0 } },  // Only pick orders with version 0
-//                 {
-//                     $set: { status: 'processing' },
-//                     $inc: { version: 1 }  // Increment version for the order (lock)
-//                 },
-//                 { new: true }  // Return the modified document
-//             );
-//             if (!order) {
-//                 console.log('No pending orders left to process.');
-//                 break;  // Exit the loop if no more orders are found
-//             }
-
-//             ordersToProcess.push(order);
-//         }
-
-//         if (ordersToProcess.length === 0) return;
-
-//         for (const order of ordersToProcess) {
-//             console.log(ordersToProcess.length)
-//             console.log(`Processing order ${order.order_id}...`);
-
-//             let stateManager = await StateManager.findOne({
-//                 order_id: order.order_id,
-//                 status: 'pending'
-//             });
-//             console.log('Pending orders to process: ' + stateManager)
-//             // return
-//             if (!stateManager) {
-//                 if (!cache[order.workflow]) throw new Error('Workflow not cached');
-
-//                 stateManager = new StateManager({
-//                     order_id: order.order_id,
-//                     workflow: order.workflow,
-//                     order: order,
-//                     start_time: new Date(),
-//                     steps: cache[order.workflow],  // Use cached steps
-//                     status: 'pending'
-//                 });
-//                 stateManager.save()
-//             }
-
-//             // stateManager.current_step = 'step1';
-//             // await stateManager.save();
-//             console.log('before call invokeworkflow', stateManager._id)
-//             order.status = 'processing';
-//             await order.save();
-//             // console.log(stateManager)
-//             if (stateManager) await invokeWorkflow(stateManager).catch(err => err)
-//             console.log(`Order ${order.order_id} processed.`);
-//         }
-//     } catch (err) {
-//         console.error('Error processing orders:', err);
-//     }
-// }
 
 // Function to invoke the workflow steps sequentially 
 async function processStateOrders() {
-    try {
-        //Get x orders from older to newest
-        const stateOrders = await StateManager.find({ status: { $nin: ["completed", "failed", "in_progress"] } })
+    const stateOrders = [];
+    for (let i = 0; i < process_limit; i++) {
+        const order = await StateManager.findOneAndUpdate(
+            { status: { $nin: ["completed", "failed", "in_progress"] } },
+            { $set: { status: "in_progress" } },
+            { sort: { _id: 1 }, new: true })
             .populate('steps.api_call_id')
-            .sort({ _id: 1 })   // Sort by `_id` to ensure consistent pagination
-            .limit(process_limit)
             .exec()
-        const stateOrdersLength = stateOrders.length
-        if (stateOrdersLength < 1) { console.log('No pending orders left to process.'); return; }
-        //update them to 'processing status
-        await Promise.all(
-            stateOrders.map(order =>
-                StateManager.updateOne({ _id: order._id }, { $set: { status: "in_progress" } })
-            )
-        );
-        console.log('[START] ' + stateOrdersLength + ' State orders')
-        await Promise.allSettled(
-            stateOrders.map(stateOrder => concurrentProcessStateOrder(stateOrder))
-        );
-        console.log('[END] ' + stateOrders.length + ' State orders');
-    } catch (error) {
-        // console.log(error)
-        throw error
+        if (!order) break; // Exit if no more orders are available
+        stateOrders.push(order);
     }
+
+    if (stateOrders.length < 1) {
+        console.log(`No pending orders found. Waiting ${process_interval / 1000}s before retrying...`);
+        setTimeout(processStateOrders, process_interval || 60_000); // Retry after 30 seconds
+        return;
+    }
+    console.log(`[START] Processing ${stateOrders.length} orders`);
+    await Promise.allSettled(
+        stateOrders.map(stateOrder => concurrentProcessStateOrder(stateOrder))
+    );
+    console.log(`[END] Processing ${stateOrders.length} orders`);
+    processStateOrders();
+
 }
 
 async function concurrentProcessStateOrder(stateOrder) {
@@ -244,6 +186,7 @@ async function concurrentProcessStateOrder(stateOrder) {
             const result = await axios({
                 method: method.toLowerCase(),
                 url,
+                timeout: 20_000,
                 data: requestBody,
                 headers: requestHeaders,
                 params: requestQuery
@@ -315,7 +258,7 @@ async function cacheApiCalls() {
     }
 }
 
-const markStepAsCompleted = async (step, stateOrder, step_data) => {
+const markStepAsCompleted = async (step, stateOrder) => {
     step.status = "completed";
     step.end_time = new Date();
 
@@ -327,7 +270,6 @@ const markStepAsCompleted = async (step, stateOrder, step_data) => {
         console.log('Finished ' + stateOrder?.order_id + ' with status ' + stateOrder.status)
     }
     await stateOrder.save();
-    // console.log('Step data after processing:', step_data);
 }
 
 
@@ -341,11 +283,12 @@ const functionPool = {
 }
 
 // Cache the workflow steps on startup
+connectDatabase()
 cacheProcessStepsConfigurations();
 cacheApiCalls();
 
-setInterval(processStateOrders, 30_000); // 60000 ms = 1 minute
-
+// setInterval(processStateOrders, process_interval || 30_00); // 60000 ms = 1 minute
+processStateOrders()
 // Start the Express server
 app.listen(PORT, () => {
     console.log(`Webhook server running on port ${PORT}`);
