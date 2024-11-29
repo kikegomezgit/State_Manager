@@ -36,29 +36,34 @@ processStepsConfiguration ->workflowBlueprint
 {
     "name": "Order Creation workflow",
     "workflow": "ecommerce",
+    "queue":"start",
     "steps": [
         {
             "step_name": "get_schedules",
             "numerical_order": 1,
             "action": "get_schedule",
+            "active":true,
             "api_call_id": "66fdb4b2a0f7d9148a34ecea",
         },
         {
             "step_name": "wait",
             "numerical_order": 2,
             "action": "60",
+            "active":true,
             "api_call_id": null
         },
         {
             "step_name": "create_job_third_party",
             "numerical_order": 3,
             "action": "create_job_third_party",
+            "active":true,
             "api_call_id": "66fdb4daa0f7d9148a34eceb"
         },
         {
             "step_name": "wait",
             "numerical_order": 4,
             "action": "30",
+            "active":true,
             "api_call_id": null
         }
     ]
