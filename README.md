@@ -7,7 +7,9 @@
 Environment variables required in the `.env` file:
 
 ```env
-MONGO_SRV={{your_mongodb_connection_srv}}
+MONGO_SRV={your_mongodb_connection_srv}
+SECRET_API_TOKEN={your_secret}
+SECRET_WH_TOKEN={your_secret}
 ```
 
 ---
@@ -20,6 +22,7 @@ MONGO_SRV={{your_mongodb_connection_srv}}
 **Endpoint:**
 ```plaintext
 POST http://localhost:3001/webhook
+HEADERS: webhookapitoken:SECRET_WH_TOKEN
 ```
 
 **Payload:**
@@ -54,6 +57,7 @@ POST http://localhost:3001/webhook
 **Endpoint:**
 ```plaintext
 POST http://localhost:3001/reprocess
+HEADERS: webhookapitoken:SECRET_WH_TOKEN
 ```
 
 **Payload:**

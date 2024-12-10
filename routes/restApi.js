@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const { validateSecret } = require('../Middlewares/tokenSecret')
+const secret_name = 'restapitoken'
 
 // http://localhost:3001/orders?pageSize=50&page=1
-router.get('/orders', async (req, res) => {
+router.get('/orders', validateSecret(secret_name), async (req, res) => {
     const { pageSize = 50, page = 1 } = req.query;
 
     try {
@@ -18,7 +20,7 @@ router.get('/orders', async (req, res) => {
     }
 });
 
-router.get('/order', async (req, res) => {
+router.get('/order', validateSecret(secret_name), async (req, res) => {
     const { order_id } = req.query;
     try {
         const order = await StateManager.findOne({ order_id: order_id });

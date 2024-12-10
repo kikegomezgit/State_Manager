@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { createStateOrder, findAndReprocessFailedStateOrders } = require('../Functions/functions')
+const { validateSecret } = require('../Middlewares/tokenSecret')
+const secret_name = 'webhookapitoken'
 
 
 
 // Webhook route
-router.post('/webhook', async (req, res) => {
+router.post('/webhook', validateSecret(secret_name), async (req, res) => {
 
     //check on queue , initial, injection, finish
     const { queue, order: { workflow, order_id } } = req.body
@@ -24,7 +26,7 @@ router.post('/webhook', async (req, res) => {
 });
 
 // Reprocess route
-router.post('/reprocess', async (req, res) => {
+router.post('/reprocess', validateSecret(secret_name), async (req, res) => {
 
     // if (!orders || !workflow) {
     //     return res.status(400).json({ message: 'Missing required fields' });
