@@ -1,6 +1,15 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
-//Step
+const MONGO_SRV = process.env.MONGO_SRV
+
+const startDb = () => {
+    mongoose.connect(MONGO_SRV, {
+    }).then(() => {
+        console.log('MongoDB connected');
+    }).catch((err) => {
+        console.error('MongoDB connection error:', err);
+    });
+}
 const stepSchema = new Schema({
     step_name: { type: String, required: true },
     numerical_order: { type: Number, required: true },
@@ -13,26 +22,25 @@ const stepSchema = new Schema({
     end_time: { type: Date, default: null },
 });
 
-const processStepsConfiguration = new Schema({
+const workflowBlueprint = new Schema({
     name: String,
     workflow: String,
-    queue: { type: String, required: true },
     steps: [stepSchema]
 });
 
-//Workflow
-const stateManagerSchema = new Schema({
+const stateOrderSchema = new Schema({
     order_id: { type: String, required: true },
+    queue: { type: String, required: true },
     order: { type: Schema.Types.Mixed, default: null },
+    reprocessed: { type: Boolean },
     workflow: { type: String, required: true },
     status: { type: String, enum: ['pending', 'in_progress', 'completed', 'failed'], default: 'pending' },
     start_time: { type: Date, default: Date.now },
     end_time: { type: Date, default: null },
     current_step: { type: String },
-    steps: [stepSchema]  // List of steps involved in the state manager
+    steps: [stepSchema]
 });
 
-//Apis
 const apiCallSchema = new Schema({
     api_name: { type: String, required: true },
     description: { type: String, required: false },
@@ -45,12 +53,12 @@ const apiCallSchema = new Schema({
 });
 
 const ApiCall = mongoose.model('ApiCall', apiCallSchema);
-const StateManager = mongoose.model('StateManager', stateManagerSchema);
-const ProcessStepsConfiguration = mongoose.model('ProcessStepsConfiguration', processStepsConfiguration);
+const StateOrder = mongoose.model('StateOrder', stateOrderSchema);
+const WorkflowBlueprint = mongoose.model('workflowBluePrint', workflowBlueprint);
 
 module.exports = {
+    startDb,
     ApiCall,
-    StateManager,
-    ProcessStepsConfiguration
+    StateOrder,
+    WorkflowBlueprint
 }
-
