@@ -13,11 +13,15 @@ const startDb = () => {
 const stepSchema = new Schema({
     step_name: { type: String, required: true },
     numerical_order: { type: Number, required: true },
-    action: { type: String, required: true },//brief description of action
+    action: { type: String, required: true },
     api_call_id: { type: Schema.Types.ObjectId, ref: 'ApiCall' },
     status: { type: String, enum: ['pending', 'in progress', 'completed', 'failed', null], default: null },
     response: { type: Schema.Types.Mixed, default: null },
     active: { type: Boolean, required: true },
+    onFailed: {
+        api_call_id: { type: mongoose.Schema.Types.ObjectId, ref: "ApiCall" },
+        active: { type: Boolean },
+    },
     error: { type: Schema.Types.Mixed, default: null },
     end_time: { type: Date, default: null },
 });
