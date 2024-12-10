@@ -1,53 +1,80 @@
-# State_Manager
-# Overall explanation
+# **State_Manager**
 
-ENV VARS on .env:
+---
+
+## **Overview**
+
+Environment variables required in the `.env` file:
+
+```env
 MONGO_SRV={{your_mongodb_connection_srv}}
+```
 
-# INSTRUCTIONS AND USE MANUAL
+---
 
-# ROUTES:
-create order
-    POST http://localhost:3001/webhook
-    {
-        "queue":"initial",
-        "order": {
-            "order_id": "2024112312-01",
-            "workflow": "ecommerce",
-            "desired_date": "2024-11-23T16:00:00Z",
-            "items": [
-                {
-                    "item_id": "P003-94",
-                    "name": "item random",
-                    "quantity": 2,
-                    "price": 100
-                },
-                {
-                    "item_id": "P003-96",
-                    "name": "item random 2",
-                    "quantity": 3,
-                    "price": 50
-                }
-            ]
-        }
+## **Instructions and User Manual**
+
+### **Routes**
+
+#### **1. Create Order**
+**Endpoint:**
+```plaintext
+POST http://localhost:3001/webhook
+```
+
+**Payload:**
+```json
+{
+    "queue": "initial",
+    "order": {
+        "order_id": "2024112312-01",
+        "workflow": "ecommerce",
+        "desired_date": "2024-11-23T16:00:00Z",
+        "items": [
+            {
+                "item_id": "P003-94",
+                "name": "item random",
+                "quantity": 2,
+                "price": 100
+            },
+            {
+                "item_id": "P003-96",
+                "name": "item random 2",
+                "quantity": 3,
+                "price": 50
+            }
+        ]
     }
+}
+```
 
+---
 
-reprocess all or some orders by id
-    POST http://localhost:3001/reprocess
-    {
-        "queue":"initial",
-        "orders": ["2024112307-01"],//optional
-        "workflow": "ecommerce"
-    }
+#### **2. Reprocess Orders**
+**Endpoint:**
+```plaintext
+POST http://localhost:3001/reprocess
+```
 
+**Payload:**
+```json
+{
+    "queue": "initial",
+    "orders": ["2024112307-01"], // optional
+    "workflow": "ecommerce"
+}
+```
 
-# DATABASE SCHEMAS ON MONGODBCLOUD
-example of document inserted manually on apicall
-keypoints: 
-    -apicalls has to exist to be used by steps on workflowBlueprint
-    -authorization can and has to be implemented using same blueprint logic
-1-
+---
+
+## **Database Schemas on MongoDBCloud**
+
+### Example 1: Document inserted manually on **ApiCalls**
+**Key Points:**
+- `ApiCalls` must exist to be used by steps in `workflowBlueprint`.
+- Authorization can and should be implemented using the same blueprint logic.
+
+```json
 {
     "_id": {
         "$oid": "66fdb4b2a0f7d9148a34ecea"
@@ -75,7 +102,10 @@ keypoints:
     ],
     "timestamp": "2024-09-27T12:00:00Z"
 }
-2-
+```
+
+### Example 2: Document inserted manually on **ApiCalls**
+```json
 {
     "_id": {
         "$oid": "66fdb4daa0f7d9148a34eceb"
@@ -104,36 +134,52 @@ keypoints:
     ],
     "timestamp": "2024-09-27T12:00:00Z"
 }
-# EXPLANATION OF KEY POINTS ON APICALLS
- "request_attributes": {
-        "body": [
-            {
-                "attribute": "items"
-            },
-            {
-                "attribute": "desired_date"
-            }
-        ]
-    },
-    "response_attributes": [
+```
+
+---
+
+## **Explanation of Key Points on ApiCalls**
+
+### Request Attributes
+```json
+"request_attributes": {
+    "body": [
         {
-            "attribute": "schedule",
-            "process_function": "firstOfArray"
+            "attribute": "items"
+        },
+        {
+            "attribute": "desired_date"
         }
-    ],
---On request attributes.body it contains an array, in this array you must declare 
-attribute : the field name
-source: from where it will obtain it, it can only be one of the following three,
-    -order(default): it is implied, no need to specify if this will be the source.
-    -result: this is from the response result, can only be used on response.attributes.
-    -step_data: with every array of steps, this is the step_data accumulated from all the previous steps that has been completed.
-optional: process_function: this field is used to use a function available from the functionPool, it has to exist here to be used with the given field
+    ]
+}
+```
 
+### Response Attributes
+```json
+"response_attributes": [
+    {
+        "attribute": "schedule",
+        "process_function": "firstOfArray"
+    }
+]
+```
 
-example of document inserted manually on workflowBlueprint
-keypoints: 
-    -api_call_id has to be linked with ApiCalls schemas documents on non waits
+- **Request Attributes**: 
+  - `attribute`: The field name.
+  - `source` (optional): Defines the data source. Options:
+    - `order` (default): Implied, no need to specify.
+    - `result`: From the response result (only for `response_attributes`).
+    - `step_data`: Data accumulated from all previously completed steps.
+  - **Optional**: `process_function`: Uses a function from the `functionPool`.
 
+---
+
+## **Example of WorkflowBlueprint**
+
+**Key Points:**
+- `api_call_id` must link with documents in `ApiCalls`.
+
+```json
 {
     "name": "Order Creation workflow",
     "workflow": "ecommerce",
@@ -142,31 +188,41 @@ keypoints:
             "step_name": "get_schedules",
             "numerical_order": 1,
             "action": "get_schedule",
-            "active":true,
-            "api_call_id": "66fdb4b2a0f7d9148a34ecea",
+            "active": true,
+            "api_call_id": "66fdb4b2a0f7d9148a34ecea"
         },
         {
             "step_name": "wait",
             "numerical_order": 2,
             "action": "60",
-            "active":true,
+            "active": true,
             "api_call_id": null
         },
         {
             "step_name": "create_job_third_party",
             "numerical_order": 3,
             "action": "create_job_third_party",
-            "active":true,
+            "active": true,
             "api_call_id": "66fdb4daa0f7d9148a34eceb"
         },
         {
             "step_name": "wait",
             "numerical_order": 4,
             "action": "30",
-            "active":true,
+            "active": true,
             "api_call_id": null
         }
     ]
 }
-# FUNCTIONPOOL
--functionPool is an library of available functions to be used on apicalls for request attributes and response attributes "process_function": "firstOfArray"
+```
+
+---
+
+## **FunctionPool**
+
+- The `FunctionPool` is a library of functions available for use in `ApiCalls`.
+- Example:
+```json
+"process_function": "firstOfArray"
+```
+"""
