@@ -46,6 +46,7 @@ reprocess all or some orders by id
 example of document inserted manually on apicall
 keypoints: 
     -apicalls has to exist to be used by steps on workflowBlueprint
+    -authorization can and has to be implemented using same blueprint logic
 1-
 {
     "_id": {
@@ -103,6 +104,31 @@ keypoints:
     ],
     "timestamp": "2024-09-27T12:00:00Z"
 }
+# EXPLANATION OF KEY POINTS ON APICALLS
+ "request_attributes": {
+        "body": [
+            {
+                "attribute": "items"
+            },
+            {
+                "attribute": "desired_date"
+            }
+        ]
+    },
+    "response_attributes": [
+        {
+            "attribute": "schedule",
+            "process_function": "firstOfArray"
+        }
+    ],
+--On request attributes.body it contains an array, in this array you must declare 
+attribute : the field name
+source: from where it will obtain it, it can only be one of the following three,
+    -order(default): it is implied, no need to specify if this will be the source.
+    -result: this is from the response result, can only be used on response.attributes.
+    -step_data: with every array of steps, this is the step_data accumulated from all the previous steps that has been completed.
+optional: process_function: this field is used to use a function available from the functionPool, it has to exist here to be used with the given field
+
 
 example of document inserted manually on workflowBlueprint
 keypoints: 
