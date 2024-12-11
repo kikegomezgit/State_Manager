@@ -34,7 +34,6 @@ const workflowBlueprint = new Schema({
 
 const stateOrderSchema = new Schema({
     order_id: { type: String, required: true },
-    queue: { type: String, required: true },
     order: { type: Schema.Types.Mixed, default: null },
     reprocessed: { type: Boolean },
     workflow: { type: String, required: true },

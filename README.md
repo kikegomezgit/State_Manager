@@ -8,8 +8,8 @@ Environment variables required in the `.env` file:
 
 ```env
 MONGO_SRV={your_mongodb_connection_srv}
-SECRET_API_TOKEN={your_secret}
-SECRET_WH_TOKEN={your_secret}
+SECRET_API_TOKEN={your_secret} example: asdasd77jSkd2s
+SECRET_WH_TOKEN={your_secret} example: %4kdakjK.43
 ```
 
 ---
@@ -28,9 +28,9 @@ HEADERS: webhookapitoken:SECRET_WH_TOKEN
 **Payload:**
 ```json
 {
-    "queue": "initial",
+    "workflow":"ecommerce_creation",
     "order": {
-        "order_id": "2024112312-01",
+        "order_id": "2024112360-01",
         "workflow": "ecommerce",
         "desired_date": "2024-11-23T16:00:00Z",
         "items": [
@@ -63,9 +63,8 @@ HEADERS: webhookapitoken:SECRET_WH_TOKEN
 **Payload:**
 ```json
 {
-    "queue": "initial",
-    "orders": ["2024112307-01"], // optional
-    "workflow": "ecommerce"
+    "orders": ["2024112316-01"],
+    "workflow": "ecommerce_creation" or "ecommerce_payment"
 }
 ```
 
@@ -85,7 +84,7 @@ HEADERS: webhookapitoken:SECRET_WH_TOKEN
     },
     "api_name": "Get schedules",
     "description": "This API retrieves available schedules",
-    "workflow": "ecommerce",
+    "workflow": "ecommerce_creation",
     "url": "http://localhost:8088/api/schedules",
     "method": "POST",
     "request_attributes": {
@@ -116,7 +115,7 @@ HEADERS: webhookapitoken:SECRET_WH_TOKEN
     },
     "api_name": "Create job",
     "description": "This API creates the job on third party",
-    "workflow": "ecommerce",
+    "workflow": "ecommerce_creation",
     "url": "http://localhost:8088/api/createJob",
     "method": "POST",
     "request_attributes": {
@@ -137,6 +136,60 @@ HEADERS: webhookapitoken:SECRET_WH_TOKEN
         }
     ],
     "timestamp": "2024-09-27T12:00:00Z"
+}
+```
+
+### Example 3: Document inserted manually on **ApiCalls**
+this apicall is used only if step 1 fails as configured on workflowBlueprint onFailed
+```json
+{
+    "_id": {
+        "$oid": "6758a52bc740e5fbe0339680"
+    },
+    "api_name": "Recover schedules on failed",
+    "description": "This API retrieves schedules in case of failed",
+    "workflow": "ecommerce_creation",
+    "url": "http://localhost:8088/api/recoverSchedule",
+    "method": "POST",
+    "request_attributes": {
+        "body": [
+            {
+                "attribute": "order_id"
+            }
+        ]
+    },
+    "response_attributes": [
+        {
+            "attribute": "schedule",
+            "process_function": "firstOfArray"
+        }
+    ]
+}
+```
+```json
+{
+    "_id": {
+        "$oid": "6759e9a9c740e5fbe034394e"
+    },
+    "api_name": "Confirm payment on X system",
+    "description": "This API confirms payment on X system",
+    "workflow": "ecommerce_payment",
+    "url": "http://localhost:8088/api/orderConfirmationPaid",
+    "method": "POST",
+    "request_attributes": {
+        "body": [
+            {
+                "attribute": "order"
+            }
+        ]
+    },
+    "response_attributes": [
+        {
+            "attribute": "confirmation_id",
+            "source": "result"
+        }
+    ],
+    "timestamp": "2024-12-11T12:00:00Z"
 }
 ```
 
@@ -182,39 +235,82 @@ HEADERS: webhookapitoken:SECRET_WH_TOKEN
 
 **Key Points:**
 - `api_call_id` must link with documents in `ApiCalls`.
+-workflow has to be unique per WorkflowBlueprint ecommerce_creation, ecommerce_payment
+a wait time can be set as part of step
+-"numerical_order": always has to be arranged on the order that steps will be used
+```json
+{
+            "step_name": "wait",
+            "numerical_order": {
+                "$numberInt": "2"
+            },
+            "action": "60",
+            "active": true,
+            "api_call_id": null
+}
+```
 
 ```json
 {
     "name": "Order Creation workflow",
-    "workflow": "ecommerce",
+    "workflow": "ecommerce_creation",
     "steps": [
         {
             "step_name": "get_schedules",
-            "numerical_order": 1,
+            "numerical_order": {
+                "$numberInt": "1"
+            },
             "action": "get_schedule",
             "active": true,
-            "api_call_id": "66fdb4b2a0f7d9148a34ecea"
+            "api_call_id": "66fdb4b2a0f7d9148a34ecea",
+            "onFailed": {
+                "api_call_id": "6758a52bc740e5fbe0339680",
+                "active": true
+            }
         },
         {
             "step_name": "wait",
-            "numerical_order": 2,
+            "numerical_order": {
+                "$numberInt": "2"
+            },
             "action": "60",
             "active": true,
             "api_call_id": null
         },
         {
             "step_name": "create_job_third_party",
-            "numerical_order": 3,
+            "numerical_order": {
+                "$numberInt": "3"
+            },
             "action": "create_job_third_party",
             "active": true,
             "api_call_id": "66fdb4daa0f7d9148a34eceb"
         },
         {
             "step_name": "wait",
-            "numerical_order": 4,
+            "numerical_order": {
+                "$numberInt": "4"
+            },
             "action": "30",
             "active": true,
             "api_call_id": null
+        }
+    ]
+}
+```
+```json
+{
+    "name": "Order confirmation workflow",
+    "workflow": "ecommerce_payment",
+    "steps": [
+        {
+            "step_name": "confirm_payment_on_x_system",
+            "numerical_order": {
+                "$numberInt": "1"
+            },
+            "action": "confirm_payment_on_x_system",
+            "active": true,
+            "api_call_id": "6759e9a9c740e5fbe034394e"
         }
     ]
 }

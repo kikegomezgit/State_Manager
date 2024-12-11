@@ -50,7 +50,6 @@ const concurrentProcessStateOrder = async (stateOrder) => {
                 await markStepAsCompleted(step, stateOrder, step_data);
                 continue;
             }
-            console.log(step)
             const { onFailed: { api_call_id } = {} } = step
             let {
                 url,
@@ -126,7 +125,7 @@ const concurrentProcessStateOrder = async (stateOrder) => {
                     step.response = null;
                     step.end_time = new Date();
 
-                    console.log('Finished ' + stateOrder?.order_id + ' with status ' + stateOrder.status);
+                    console.log('Finished ' + stateOrder?.order_id + ' ' + stateOrder.workflow + ' with status ' + stateOrder.status);
                     await stateOrder.save();
                     throw new Error(`Workflow failed at step ${step.step_name}`);
 
@@ -148,10 +147,10 @@ const concurrentProcessStateOrder = async (stateOrder) => {
             step.response = result?.api_response ?? null;
             step.error = errorMessage || null;
             await markStepAsCompleted(step, stateOrder, step_data);
-            console.log('[order] ' + stateOrder.order_id + ' finished processing: ' + step.step_name);
+            console.log('[order] ' + stateOrder.order_id + + ' ' + stateOrder.workflow + ' finished processing: ' + step.step_name);
         }
     } catch (err) {
-        console.log(err);
+        throw err
     }
 }
 
@@ -163,7 +162,7 @@ const cacheworkflowBlueprints = async () => {
         });
         console.log('Workflow steps cached successfully.');
     } catch (error) {
-        console.error('Error caching workflow steps:', error);
+        throw error
     }
 }
 const cacheApiCalls = async () => {
@@ -175,7 +174,7 @@ const cacheApiCalls = async () => {
         // console.log(apiCalls)
         console.log('apiCalls cached successfully.');
     } catch (error) {
-        console.error('Error caching apiCalls:', error);
+        throw error
     }
 }
 
@@ -189,18 +188,18 @@ const markStepAsCompleted = async (step, stateOrder) => {
     // if (stateOrder.steps.every((s) => s.status === "completed")) {
     if (stateOrder.steps[stateOrder.steps.length - 1].status === "completed") {
         stateOrder.status = "completed";
+        stateOrder.end_time = new Date();
         console.log('Finished ' + stateOrder?.order_id + ' with status ' + stateOrder.status)
     }
     await stateOrder.save();
 }
 
 const createStateOrder = (body) => {
-    const { queue, order: { workflow, order_id } } = body
+    const { workflow, order: { order_id } } = body
     if (!cache[workflow]) throw new Error('Invalid worfklow');
     let stateOrder = new StateOrder({
         order_id,
         workflow,
-        queue,
         order: body.order,
         steps: cache[workflow],
         status: 'pending'
@@ -208,7 +207,7 @@ const createStateOrder = (body) => {
     stateOrder.save()
 }
 
-const findAndReprocessFailedStateOrders = async ({ orders = [], workflow, queue = 'initial' }) => {
+const findAndReprocessFailedStateOrders = async ({ orders = [], workflow }) => {
 
     const query = [
         // Match documents based on the condition
@@ -217,7 +216,6 @@ const findAndReprocessFailedStateOrders = async ({ orders = [], workflow, queue 
                 ...(orders.length > 0 ? { order_id: { $in: orders } } : {}),
                 status: 'failed',
                 workflow,
-                queue,
                 reprocessed: { $ne: true } // Ignore documents where reprocessed is true
             }
         },
