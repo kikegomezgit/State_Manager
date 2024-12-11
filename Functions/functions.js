@@ -15,7 +15,10 @@ const processStateOrders = async () => {
             { status: { $nin: ["completed", "failed", "in_progress"] } },
             { $set: { status: "in_progress" } },
             { sort: { _id: 1 }, new: true })
-            .populate('steps.api_call_id')
+            .populate([
+                { path: 'steps.api_call_id' },
+                { path: 'steps.onFailed.api_call_id' }
+            ])
             .exec()
         if (!order) break; // Exit if no more orders are available
         stateOrders.push(order);
@@ -47,13 +50,18 @@ const concurrentProcessStateOrder = async (stateOrder) => {
                 await markStepAsCompleted(step, stateOrder, step_data);
                 continue;
             }
-
-            const { url, method, request_attributes, response_attributes } = step.api_call_id;
+            const { onFailed: { api_call_id } = {} } = step
+            let {
+                url,
+                method,
+                request_attributes,
+                response_attributes,
+            } = step.api_call_id || {};
             // Prepare Axios request
             let requestBody = {};
             let requestHeaders = {};
             let requestQuery = {};
-
+            let errorMessage = null
             // Use the request_attributes to set request data dynamically
             if (request_attributes.body) {
                 request_attributes.body.map(item => {
@@ -73,31 +81,62 @@ const concurrentProcessStateOrder = async (stateOrder) => {
                 data: requestBody,
                 headers: requestHeaders,
                 params: requestQuery
-            }).then(res => res.data)
+            }).then(res => ({ api_response: res.data }))
                 .catch(async error => {
-                    step.status = 'failed';
-                    stateOrder.status = 'failed';
-
-                    const errorMessage = {
+                    errorMessage = {
                         code: error?.response?.status,
                         r_message: error?.response?.data,
                         message: error?.code
                     };
 
                     step.error = errorMessage;
+
+                    // api_response: res.data 
+                    if (step.onFailed && step.onFailed?.api_call_id) {
+                        const { url, method, request_attributes, response_attributes } = step.onFailed?.api_call_id;
+                        // Prepare Axios request
+                        let requestBody = {};
+                        let requestHeaders = {};
+                        let requestQuery = {};
+                        // Use the request_attributes to set request data dynamically
+                        if (request_attributes.body) {
+                            request_attributes.body.map(item => {
+                                let { attribute, source = 'order', process_function } = item;
+                                source = source === 'result' ? result : source === 'step_data' ? step_data : order;
+                                requestBody[attribute] = process_function
+                                    ? functionPool[process_function](source[attribute])
+                                    : source[attribute];
+                            });
+                        }
+
+                        const result = await axios({
+                            method: method.toLowerCase(),
+                            url,
+                            timeout: 20_000,
+                            data: requestBody,
+                            headers: requestHeaders,
+                            params: requestQuery
+                        }).then(res => res.data)
+                        return { onFailed: true, api_response: result }
+                    }
+
+                    step.status = 'failed';
+                    stateOrder.status = 'failed';
                     step.response = null;
                     step.end_time = new Date();
 
-                    console.log('Finished ' + stateOrder?.order_id + ' with status ' + stateOrder.status);
+                    console.log('Finished ' + stateOrder?.order_id + ' ' + stateOrder.workflow + ' with status ' + stateOrder.status);
                     await stateOrder.save();
                     throw new Error(`Workflow failed at step ${step.step_name}`);
+
                 });
 
+            if (result?.onFailed === true) response_attributes = api_call_id?.response_attributes
             // Handle response attributes to save to step_data for the next step
             if (response_attributes) {
                 response_attributes.map(item => {
                     let { attribute, process_function, source = 'result' } = item;
-                    source = source === 'result' ? result : source === 'step_data' ? step_data : order;
+                    source = source === 'result' ? result.api_response : source === 'step_data' ? step_data : order;
                     step_data[attribute] = process_function
                         ? functionPool[process_function](source[attribute])
                         : source[attribute];
@@ -105,13 +144,13 @@ const concurrentProcessStateOrder = async (stateOrder) => {
             }
 
 
-            step.response = result ?? null;
-            step.error = null;
+            step.response = result?.api_response ?? null;
+            step.error = errorMessage || null;
             await markStepAsCompleted(step, stateOrder, step_data);
-            console.log('[order] ' + stateOrder.order_id + ' finished processing: ' + step.step_name);
+            console.log('[order] ' + stateOrder.order_id + + ' ' + stateOrder.workflow + ' finished processing: ' + step.step_name);
         }
     } catch (err) {
-        console.log(err);
+        throw err
     }
 }
 
@@ -123,7 +162,7 @@ const cacheworkflowBlueprints = async () => {
         });
         console.log('Workflow steps cached successfully.');
     } catch (error) {
-        console.error('Error caching workflow steps:', error);
+        throw error
     }
 }
 const cacheApiCalls = async () => {
@@ -135,7 +174,7 @@ const cacheApiCalls = async () => {
         // console.log(apiCalls)
         console.log('apiCalls cached successfully.');
     } catch (error) {
-        console.error('Error caching apiCalls:', error);
+        throw error
     }
 }
 
@@ -146,20 +185,21 @@ const markStepAsCompleted = async (step, stateOrder) => {
     // Mark workflow as completed if this is the last step
 
     // if (step_finish_length === step.numerical_order) workflow.status = 'completed'
-    if (stateOrder.steps.every((s) => s.status === "completed")) {
+    // if (stateOrder.steps.every((s) => s.status === "completed")) {
+    if (stateOrder.steps[stateOrder.steps.length - 1].status === "completed") {
         stateOrder.status = "completed";
+        stateOrder.end_time = new Date();
         console.log('Finished ' + stateOrder?.order_id + ' with status ' + stateOrder.status)
     }
     await stateOrder.save();
 }
 
 const createStateOrder = (body) => {
-    const { queue, order: { workflow, order_id } } = body
+    const { workflow, order: { order_id } } = body
     if (!cache[workflow]) throw new Error('Invalid worfklow');
     let stateOrder = new StateOrder({
         order_id,
         workflow,
-        queue,
         order: body.order,
         steps: cache[workflow],
         status: 'pending'
@@ -167,7 +207,7 @@ const createStateOrder = (body) => {
     stateOrder.save()
 }
 
-const findAndReprocessFailedStateOrders = async ({ orders = [], workflow, queue = 'initial' }) => {
+const findAndReprocessFailedStateOrders = async ({ orders = [], workflow }) => {
 
     const query = [
         // Match documents based on the condition
@@ -176,7 +216,6 @@ const findAndReprocessFailedStateOrders = async ({ orders = [], workflow, queue 
                 ...(orders.length > 0 ? { order_id: { $in: orders } } : {}),
                 status: 'failed',
                 workflow,
-                queue,
                 reprocessed: { $ne: true } // Ignore documents where reprocessed is true
             }
         },
