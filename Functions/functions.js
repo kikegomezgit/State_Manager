@@ -266,6 +266,18 @@ const functionPool = {
     }
 }
 
+const findStateOrders = async ({ pageSize = 50, page = 1, workflow }) => {
+    const orders = await StateOrder.find({ workflow })
+        .sort({ _id: 1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+    const totalOrders = await StateOrder.countDocuments();
+    return { orders, totalOrders }
+}
+const findStateOrder = async ({ order_id, workflow }) => {
+    const result = await StateOrder.find({ order_id, workflow })
+    return result[0]
+}
 cacheworkflowBlueprints();
 cacheApiCalls();
 
@@ -273,6 +285,8 @@ module.exports = {
     processStateOrders,
     concurrentProcessStateOrder,
     createStateOrder,
-    findAndReprocessFailedStateOrders
+    findAndReprocessFailedStateOrders,
+    findStateOrders,
+    findStateOrder
 }
 
