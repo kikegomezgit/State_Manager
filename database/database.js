@@ -44,6 +44,8 @@ const stateOrderSchema = new Schema({
     steps: [stepSchema]
 });
 
+stateOrderSchema.index({ order_id: 1, workflow: 1 }, { unique: true });
+
 const apiCallSchema = new Schema({
     api_name: { type: String, required: true },
     description: { type: String, required: false },
