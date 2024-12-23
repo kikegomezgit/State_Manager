@@ -124,6 +124,7 @@ const concurrentProcessStateOrder = async (stateOrder) => {
                     stateOrder.status = 'failed';
                     step.response = null;
                     step.end_time = new Date();
+                    stateOrder.end_time = new Date();
 
                     console.log('Finished ' + stateOrder?.order_id + ' ' + stateOrder.workflow + ' with status ' + stateOrder.status);
                     await stateOrder.save();
@@ -208,6 +209,7 @@ const createStateOrder = (body) => {
 }
 
 const findAndReprocessFailedStateOrders = async ({ orders = [], workflow }) => {
+    // console.log(orders, workflow)
 
     const query = [
         // Match documents based on the condition
@@ -246,11 +248,15 @@ const findAndReprocessFailedStateOrders = async ({ orders = [], workflow }) => {
             newDoc.order_id = getIdwithConsecutive(newDoc.order_id); // Append '01' to order_id
             // Step 2: Update the `reprocessed` field for each document to avoid duplicates on all
             StateOrder.updateOne(
-                { order_id: current_id }, // Match the document by its `_id` or unique identifier
-                { $set: { reprocessed: true } } // Update the `reprocessed` field
-            )
+                { order_id: current_id, workflow: doc.workflow }, // Match the document by its `_id` or unique identifier
+                { $set: { reprocessed: true } }, // Update the `reprocessed` field
+                { upsert: false }
+            ).then(res => console.log(res)).catch(err => console.log(err))
             return newDoc;
         });
+        console.log('the newdocs')
+
+        console.log(newStateOrders)
         const createdDocs = await StateOrder.insertMany(newStateOrders);
         return createdDocs
 
@@ -268,7 +274,7 @@ const functionPool = {
 
 const findStateOrders = async ({ pageSize = 50, page = 1, workflow }) => {
     const orders = await StateOrder.find({ workflow })
-        .sort({ _id: 1 })
+        .sort({ _id: -1 })
         .skip((page - 1) * pageSize)
         .limit(pageSize)
     const totalOrders = await StateOrder.countDocuments();
