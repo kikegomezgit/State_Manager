@@ -3,7 +3,7 @@ const { WorkflowBlueprint, ApiCall, Order, StateOrder } = require('../database/d
 const { getIdwithConsecutive } = require('./helpers')
 const axios = require('axios');
 const process_limit = 5
-const process_interval = 600_000
+const process_interval = 60_000
 const cache = {};
 const apiCallsCache = {}
 
@@ -195,9 +195,9 @@ const markStepAsCompleted = async (step, stateOrder) => {
     await stateOrder.save();
 }
 
-const createStateOrder = (body) => {
-    const { workflow, order: { order_id } } = body
-    if (!cache[workflow]) throw new Error('Invalid worfklow');
+const createStateOrder = async (body) => {
+    const { workflow, order: { order_id } } = body;
+    if (!cache[workflow]) throw new Error('Invalid workflow');
     let stateOrder = new StateOrder({
         order_id,
         workflow,
@@ -205,8 +205,17 @@ const createStateOrder = (body) => {
         steps: cache[workflow],
         status: 'pending'
     });
-    stateOrder.save()
-}
+    try {
+        await stateOrder.save();
+    } catch (error) {
+        if (error.code === 11000) {
+            console.error('Duplicate order detected:', order_id);
+        } else {
+            console.error('Error saving order:', error.message);
+            throw error
+        }
+    }
+};
 
 const findAndReprocessFailedStateOrders = async ({ orders = [], workflow }) => {
     // console.log(orders, workflow)
