@@ -3,7 +3,7 @@ const { WorkflowBlueprint, ApiCall, Order, StateOrder } = require('../database/d
 const { getIdwithConsecutive } = require('./helpers')
 const axios = require('axios');
 const process_limit = 5
-const process_interval = 60_000
+const process_interval = 600_000
 const cache = {};
 const apiCallsCache = {}
 
@@ -263,9 +263,7 @@ const findAndReprocessFailedStateOrders = async ({ orders = [], workflow }) => {
             ).then(res => console.log(res)).catch(err => console.log(err))
             return newDoc;
         });
-        console.log('the newdocs')
 
-        console.log(newStateOrders)
         const createdDocs = await StateOrder.insertMany(newStateOrders);
         return createdDocs
 
