@@ -1,6 +1,6 @@
 # **State_Manager**
 ## PDF
-You can view the [project details here](./State Manager.pdf).
+You can view the [project details here](./State Manager.pdf](https://github.com/kikegomezgit/State_Manager/blob/main/State%20Manager.pdf).
 ---
 
 ## **Overview**
