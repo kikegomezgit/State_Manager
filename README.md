@@ -1,5 +1,6 @@
 # **State_Manager**
-
+## PDF
+You can view the [project details here](./example.pdf).
 ---
 
 ## **Overview**
