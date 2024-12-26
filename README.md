@@ -1,6 +1,6 @@
 # **State_Manager**
 ## PDF
-You can view the [project details here](./StateManager.pdf).
+You can view the [project details here](./State Manager.pdf).
 ---
 
 ## **Overview**
