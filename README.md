@@ -1,4 +1,10 @@
 # **State_Manager**
+## Pending to do chores:
+    -Fix pagination
+    -Real login Api(front)
+    -Sleep mode on processing but keep receiving orders and save on cache
+    -Create state orders on batches by cache
+    -Reprocess all failed orders from all time
 ## PDF
 You can view the [project details here](./State Manager.pdf](https://github.com/kikegomezgit/State_Manager/blob/main/State%20Manager.pdf).
 ---
