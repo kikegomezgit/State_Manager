@@ -5,7 +5,7 @@ const webhookRoutes = require('./routes/webhook');
 const restApiRoutes = require('./routes/restApi');
 // const mongoose = require('mongoose');
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 const cors = require('cors');
 app.use(cors());
 app.use(bodyParser.json());
