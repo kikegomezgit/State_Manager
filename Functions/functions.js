@@ -3,7 +3,7 @@ const { WorkflowBlueprint, ApiCall, Order, StateOrder } = require('../database/d
 const { getIdwithConsecutive } = require('./helpers')
 const axios = require('axios');
 const process_limit = 5
-const process_interval = 6000_000
+const process_interval = 240_000
 const cache = {};
 const apiCallsCache = {}
 
