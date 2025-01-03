@@ -6,7 +6,7 @@
     -Create state orders on batches by cache
     -Reprocess all failed orders from all time
 ## PDF
-You can view the [project details here](./State Manager.pdf](https://github.com/kikegomezgit/State_Manager/blob/main/State%20Manager.pdf).
+[You can view the [project details here](./State Manager.pdf](https://github.com/kikegomezgit/State_Manager/blob/main/State%20Manager.pdf).](https://github.com/kikegomezgit/State_Manager/blob/main/State%20Managerv1.pdf)
 ---
 
 ## **Overview**
