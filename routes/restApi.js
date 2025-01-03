@@ -4,7 +4,7 @@ const { validateSecret } = require('../Middlewares/tokenSecret')
 const { findStateOrders, findStateOrder } = require('../Functions/functions')
 const secret_name = 'restapitoken'
 
-// http://localhost:3001/orders?pageSize=50&page=1
+
 router.get('/orders', validateSecret(secret_name), async (req, res) => {
     try {
         const { orders, totalOrders } = await findStateOrders(req.query)
