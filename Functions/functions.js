@@ -3,40 +3,70 @@ const { WorkflowBlueprint, ApiCall, Order, StateOrder } = require('../database/d
 const { getIdwithConsecutive } = require('./helpers')
 const axios = require('axios');
 const process_limit = 5
-const process_interval = 240_000
+const process_interval = 60_000
 const cache = {};
 const apiCallsCache = {}
+let paused = false;
 
+// Functions to control pause/resume
+const pauseProcess = () => {
+    paused = true;
+    console.log("Process has been paused.");
+  };
+  
+  const resumeProcess = () => {
+    if (paused) {
+      paused = false;
+      console.log("Process has been resumed.");
+      processStateOrders(); // Restart the process immediately
+    }
+  };
 
-const processStateOrders = async () => {
+  const processStateOrders = async () => {
+    if (paused) {
+      console.log("Process is paused. Skipping execution...");
+      return; // Exit early if paused
+    }
+  
     const stateOrders = [];
     for (let i = 0; i < process_limit; i++) {
-        const order = await StateOrder.findOneAndUpdate(
-            { status: { $nin: ["completed", "failed", "in_progress"] } },
-            { $set: { status: "in_progress" } },
-            { sort: { _id: 1 }, new: true })
-            .populate([
-                { path: 'steps.api_call_id' },
-                { path: 'steps.onFailed.api_call_id' }
-            ])
-            .exec()
-        if (!order) break; // Exit if no more orders are available
-        stateOrders.push(order);
+      const order = await StateOrder.findOneAndUpdate(
+        { status: { $nin: ["completed", "failed", "in_progress"] } },
+        { $set: { status: "in_progress" } },
+        { sort: { _id: 1 }, new: true }
+      )
+        .populate([
+          { path: "steps.api_call_id" },
+          { path: "steps.onFailed.api_call_id" },
+        ])
+        .exec();
+  
+      if (!order) break; // Exit if no more orders are available
+      stateOrders.push(order);
     }
-
+  
     if (stateOrders.length < 1) {
-        console.log(`No pending orders found. Waiting ${process_interval / 1000}s before retrying...`);
-        setTimeout(processStateOrders, process_interval || 60_000); // Retry after 30 seconds
-        return;
+      console.log(
+        `No pending orders found. Waiting ${process_interval / 1000}s before retrying...`
+      );
+      setTimeout(() => {
+        if (!paused) processStateOrders(); // Only retry if not paused
+      }, process_interval || 60_000); // Retry after process_interval
+      return;
     }
+  
     console.log(`[START] Processing ${stateOrders.length} orders`);
     await Promise.allSettled(
-        stateOrders.map(stateOrder => concurrentProcessStateOrder(stateOrder))
+      stateOrders.map((stateOrder) => concurrentProcessStateOrder(stateOrder))
     );
     console.log(`[END] Processing ${stateOrders.length} orders`);
-    processStateOrders();
+  
+    // Recursively call itself after processing
+    setTimeout(() => {
+      if (!paused) processStateOrders(); // Only call recursively if not paused
+    }, process_interval || 60_000);
+  };
 
-}
 const concurrentProcessStateOrder = async (stateOrder) => {
     const { order, steps } = stateOrder;
     const step_finish_length = steps.length;
@@ -300,6 +330,8 @@ module.exports = {
     createStateOrder,
     findAndReprocessFailedStateOrders,
     findStateOrders,
-    findStateOrder
+    findStateOrder,
+    pauseProcess, 
+    resumeProcess
 }
 
