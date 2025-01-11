@@ -9,12 +9,13 @@ const PORT = process.env.PORT || 3001;
 const cors = require('cors');
 app.use(cors());
 app.use(bodyParser.json());
+const CronController = require("./Functions/cronCrontroller"); 
 // Mongoose Models
 const { startDb } = require('./database/database');
 
 
 const { processStateOrders } = require('./Functions/functions')
-
+const cronController = new CronController();
 
 
 app.use('/', webhookRoutes);
