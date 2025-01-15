@@ -314,7 +314,7 @@ const findStateOrders = async ({ pageSize = 50, page = 1, workflow }) => {
         .sort({ _id: -1 })
         .skip((page - 1) * pageSize)
         .limit(pageSize)
-    const totalOrders = await StateOrder.countDocuments();
+    const totalOrders = await StateOrder.countDocuments({ workflow })
     return { orders, totalOrders }
 }
 const findStateOrder = async ({ order_id, workflow }) => {
