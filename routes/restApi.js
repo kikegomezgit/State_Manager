@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { validateSecret } = require('../Middlewares/tokenSecret')
-const { findStateOrders, findStateOrder,processStateOrders,pauseProcess, resumeProcess } = require('../Functions/functions')
+const { findStateOrders, findStateOrder, getAvailableWorkflows, processStateOrders,pauseProcess, resumeProcess } = require('../Functions/functions')
 const secret_name = 'restapitoken'
 const CronController = require("../Functions/cronCrontroller");
 const cronController = new CronController();
@@ -25,6 +25,16 @@ router.get('/order', validateSecret(secret_name), async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 });
+
+router.get('/workflows', validateSecret(secret_name), async (req, res) => {
+  try {
+      const workflows = await getAvailableWorkflows()|| []
+      res.status(200).json(Object.keys(workflows));
+  } catch (err) {
+      res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 
 
 

@@ -3,7 +3,7 @@ const { WorkflowBlueprint, ApiCall, Order, StateOrder } = require('../database/d
 const { getIdwithConsecutive } = require('./helpers')
 const axios = require('axios');
 const process_limit = 5
-const process_interval = 60_000
+const process_interval = process.env.PROCESSING_TIME_INTERVAL || 60000;
 const cache = {};
 const apiCallsCache = {}
 let paused = false;
@@ -317,10 +317,16 @@ const findStateOrders = async ({ pageSize = 50, page = 1, workflow }) => {
     const totalOrders = await StateOrder.countDocuments({ workflow })
     return { orders, totalOrders }
 }
+
 const findStateOrder = async ({ order_id, workflow }) => {
     const result = await StateOrder.find({ order_id, workflow })
     return result[0]
 }
+
+const getAvailableWorkflows = async _ => {
+    return cache
+}
+
 cacheworkflowBlueprints();
 cacheApiCalls();
 
@@ -332,6 +338,7 @@ module.exports = {
     findStateOrders,
     findStateOrder,
     pauseProcess, 
-    resumeProcess
+    resumeProcess,
+    getAvailableWorkflows
 }
 
