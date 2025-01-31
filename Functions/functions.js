@@ -314,7 +314,7 @@ const findStateOrders = async ({ pageSize, page = 1, workflow, status, notReproc
     const filter = { workflow };
     if (status) filter.status = status;
     if (notReprocessed) filter.reprocessed = { $ne: true };
-    let query = StateOrder.find(filter).sort({ _id: -1 }).select("status start_time end_time");
+    let query = StateOrder.find(filter).sort({ _id: -1 }).select("status start_time end_time order_id");
     // Apply pagination only if pageSize is specified
     if (pageSize && pageSize !== "all") {
         query = query.skip((page - 1) * pageSize).limit(pageSize);
