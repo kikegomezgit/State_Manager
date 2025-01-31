@@ -11,7 +11,6 @@ router.get('/orders', validateSecret(secret_name), async (req, res) => {
         const { orders, totalOrders } = await findStateOrders(req.query)
         res.status(200).json({ orders, totalOrders });
     } catch (err) {
-        console.log(err)
         res.status(500).json({ message: 'Internal server error' });
     }
 });
@@ -30,6 +29,16 @@ router.get('/workflows', validateSecret(secret_name), async (req, res) => {
   try {
       const workflows = await getAvailableWorkflows()|| []
       res.status(200).json(Object.keys(workflows));
+  } catch (err) {
+      res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+//obtain all reprocessable orders
+router.get('/orders', validateSecret(secret_name), async (req, res) => {
+  try {
+      const { orders, totalOrders } = await findStateOrders(req.query)
+      res.status(200).json({ orders, totalOrders });
   } catch (err) {
       res.status(500).json({ message: 'Internal server error' });
   }

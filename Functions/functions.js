@@ -309,14 +309,23 @@ const functionPool = {
     }
 }
 
-const findStateOrders = async ({ pageSize = 50, page = 1, workflow }) => {
-    const orders = await StateOrder.find({ workflow })
-        .sort({ _id: -1 })
-        .skip((page - 1) * pageSize)
-        .limit(pageSize)
-    const totalOrders = await StateOrder.countDocuments({ workflow })
-    return { orders, totalOrders }
-}
+const findStateOrders = async ({ pageSize, page = 1, workflow, status, notReprocessed }) => {
+    // Build the filter dynamically
+    const filter = { workflow };
+    if (status) filter.status = status;
+    if (notReprocessed) filter.reprocessed = { $ne: true };
+    let query = StateOrder.find(filter).sort({ _id: -1 }).select("status start_time end_time");
+    // Apply pagination only if pageSize is specified
+    if (pageSize && pageSize !== "all") {
+        query = query.skip((page - 1) * pageSize).limit(pageSize);
+    }
+    // Get orders
+    const orders = await query;
+    // Get total count of matching orders
+    const totalOrders = await StateOrder.countDocuments(filter);
+    return { orders, totalOrders };
+};
+
 
 const findStateOrder = async ({ order_id, workflow }) => {
     const result = await StateOrder.find({ order_id, workflow })
