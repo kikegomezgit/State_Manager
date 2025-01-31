@@ -310,22 +310,45 @@ const functionPool = {
 }
 
 const findStateOrders = async ({ pageSize, page = 1, workflow, status, notReprocessed }) => {
-    // Build the filter dynamically
     const filter = { workflow };
     if (status) filter.status = status;
     if (notReprocessed) filter.reprocessed = { $ne: true };
-    let query = StateOrder.find(filter).sort({ _id: -1 }).select("status start_time end_time order_id");
-    // Apply pagination only if pageSize is specified
+
+    let query = StateOrder.find(filter)
+        .sort({ _id: -1 })
+        .select("status start_time end_time");
+
     if (pageSize && pageSize !== "all") {
         query = query.skip((page - 1) * pageSize).limit(pageSize);
     }
-    // Get orders
+
     const orders = await query;
-    // Get total count of matching orders
+
+    // Format the dates
+    const formattedOrders = orders.map(order => ({
+        ...order._doc,  // Convert Mongoose document to plain object
+        F_start_time: formatDate(order.start_time),
+        F_end_time: formatDate(order.end_time),
+    }));
+
     const totalOrders = await StateOrder.countDocuments(filter);
-    return { orders, totalOrders };
+
+    return { orders: formattedOrders, totalOrders };
 };
 
+// Function to format the date
+const formatDate = (date) => {
+    if (!date) return null;
+    return new Date(date).toLocaleString("en-GB", {
+        timeZone: "America/Monterrey",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+    }).replace(",", ""); // Remove comma after date
+};
 
 const findStateOrder = async ({ order_id, workflow }) => {
     const result = await StateOrder.find({ order_id, workflow })
