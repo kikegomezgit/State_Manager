@@ -12,60 +12,60 @@ let paused = false;
 const pauseProcess = () => {
     paused = true;
     console.log("Process has been paused.");
-};
-
-const resumeProcess = () => {
+  };
+  
+  const resumeProcess = () => {
     if (paused) {
-        paused = false;
-        console.log("Process has been resumed.");
-        processStateOrders(); // Restart the process immediately
+      paused = false;
+      console.log("Process has been resumed.");
+      processStateOrders(); // Restart the process immediately
     }
-};
+  };
 
-const processStateOrders = async () => {
+  const processStateOrders = async () => {
     if (paused) {
-        console.log("Process is paused. Skipping execution...");
-        return; // Exit early if paused
+      console.log("Process is paused. Skipping execution...");
+      return; // Exit early if paused
     }
-
+  
     const stateOrders = [];
     for (let i = 0; i < process_limit; i++) {
-        const order = await StateOrder.findOneAndUpdate(
-            { status: { $nin: ["completed", "failed", "in_progress"] } },
-            { $set: { status: "in_progress" } },
-            { sort: { _id: 1 }, new: true }
-        )
-            .populate([
-                { path: "steps.api_call_id" },
-                { path: "steps.onFailed.api_call_id" },
-            ])
-            .exec();
-
-        if (!order) break; // Exit if no more orders are available
-        stateOrders.push(order);
+      const order = await StateOrder.findOneAndUpdate(
+        { status: { $nin: ["completed", "failed", "in_progress"] } },
+        { $set: { status: "in_progress" } },
+        { sort: { _id: 1 }, new: true }
+      )
+        .populate([
+          { path: "steps.api_call_id" },
+          { path: "steps.onFailed.api_call_id" },
+        ])
+        .exec();
+  
+      if (!order) break; // Exit if no more orders are available
+      stateOrders.push(order);
     }
-
+  
     if (stateOrders.length < 1) {
-        console.log(
-            `No pending orders found. Waiting ${process_interval / 1000}s before retrying...`
-        );
-        setTimeout(() => {
-            if (!paused) processStateOrders(); // Only retry if not paused
-        }, process_interval || 60_000); // Retry after process_interval
-        return;
+      console.log(
+        `No pending orders found. Waiting ${process_interval / 1000}s before retrying...`
+      );
+      setTimeout(() => {
+        if (!paused) processStateOrders(); // Only retry if not paused
+      }, process_interval || 60_000); // Retry after process_interval
+      return;
     }
-
+  
     console.log(`[START] Processing ${stateOrders.length} orders`);
     await Promise.allSettled(
-        stateOrders.map((stateOrder) => concurrentProcessStateOrder(stateOrder))
+      stateOrders.map((stateOrder) => concurrentProcessStateOrder(stateOrder))
     );
     console.log(`[END] Processing ${stateOrders.length} orders`);
-
+  
     // Recursively call itself after processing
     setTimeout(() => {
-        if (!paused) processStateOrders(); // Only call recursively if not paused
+      if (!paused) processStateOrders(); // Only call recursively if not paused
     }, process_interval || 60_000);
-};
+  };
 
 const concurrentProcessStateOrder = async (stateOrder) => {
     const { order, steps } = stateOrder;
@@ -343,22 +343,6 @@ const findStateOrders = async ({ pageSize, page = 1, workflow, status, notReproc
     return { orders: formattedOrders, totalOrders };
 };
 
-
-
-const findStateOrder = async ({ order_id, workflow }) => {
-    const result = await StateOrder.find({ order_id, workflow })
-    // Format the dates
-    const formattedOrder = {
-        ...result[0],
-        F_start_time: formatDate(result[0].start_time),
-        F_end_time: formatDate(result[0].end_time),
-    }
-    return formattedOrder
-}
-
-const getAvailableWorkflows = async _ => {
-    return cache
-}
 // Function to format the date
 const formatDate = (date) => {
     if (!date) return null;
@@ -373,6 +357,15 @@ const formatDate = (date) => {
     }).replace(",", ""); // Remove comma after date
 };
 
+const findStateOrder = async ({ order_id, workflow }) => {
+    const result = await StateOrder.find({ order_id, workflow })
+    return result[0]
+}
+
+const getAvailableWorkflows = async _ => {
+    return cache
+}
+
 cacheworkflowBlueprints();
 cacheApiCalls();
 
@@ -383,7 +376,7 @@ module.exports = {
     findAndReprocessFailedStateOrders,
     findStateOrders,
     findStateOrder,
-    pauseProcess,
+    pauseProcess, 
     resumeProcess,
     getAvailableWorkflows
 }
