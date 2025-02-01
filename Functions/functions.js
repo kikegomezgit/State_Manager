@@ -12,60 +12,60 @@ let paused = false;
 const pauseProcess = () => {
     paused = true;
     console.log("Process has been paused.");
-};
-
-const resumeProcess = () => {
+  };
+  
+  const resumeProcess = () => {
     if (paused) {
-        paused = false;
-        console.log("Process has been resumed.");
-        processStateOrders(); // Restart the process immediately
+      paused = false;
+      console.log("Process has been resumed.");
+      processStateOrders(); // Restart the process immediately
     }
-};
+  };
 
-const processStateOrders = async () => {
+  const processStateOrders = async () => {
     if (paused) {
-        console.log("Process is paused. Skipping execution...");
-        return; // Exit early if paused
+      console.log("Process is paused. Skipping execution...");
+      return; // Exit early if paused
     }
-
+  
     const stateOrders = [];
     for (let i = 0; i < process_limit; i++) {
-        const order = await StateOrder.findOneAndUpdate(
-            { status: { $nin: ["completed", "failed", "in_progress"] } },
-            { $set: { status: "in_progress" } },
-            { sort: { _id: 1 }, new: true }
-        )
-            .populate([
-                { path: "steps.api_call_id" },
-                { path: "steps.onFailed.api_call_id" },
-            ])
-            .exec();
-
-        if (!order) break; // Exit if no more orders are available
-        stateOrders.push(order);
+      const order = await StateOrder.findOneAndUpdate(
+        { status: { $nin: ["completed", "failed", "in_progress"] } },
+        { $set: { status: "in_progress" } },
+        { sort: { _id: 1 }, new: true }
+      )
+        .populate([
+          { path: "steps.api_call_id" },
+          { path: "steps.onFailed.api_call_id" },
+        ])
+        .exec();
+  
+      if (!order) break; // Exit if no more orders are available
+      stateOrders.push(order);
     }
-
+  
     if (stateOrders.length < 1) {
-        console.log(
-            `No pending orders found. Waiting ${process_interval / 1000}s before retrying...`
-        );
-        setTimeout(() => {
-            if (!paused) processStateOrders(); // Only retry if not paused
-        }, process_interval || 60_000); // Retry after process_interval
-        return;
+      console.log(
+        `No pending orders found. Waiting ${process_interval / 1000}s before retrying...`
+      );
+      setTimeout(() => {
+        if (!paused) processStateOrders(); // Only retry if not paused
+      }, process_interval || 60_000); // Retry after process_interval
+      return;
     }
-
+  
     console.log(`[START] Processing ${stateOrders.length} orders`);
     await Promise.allSettled(
-        stateOrders.map((stateOrder) => concurrentProcessStateOrder(stateOrder))
+      stateOrders.map((stateOrder) => concurrentProcessStateOrder(stateOrder))
     );
     console.log(`[END] Processing ${stateOrders.length} orders`);
-
+  
     // Recursively call itself after processing
     setTimeout(() => {
-        if (!paused) processStateOrders(); // Only call recursively if not paused
+      if (!paused) processStateOrders(); // Only call recursively if not paused
     }, process_interval || 60_000);
-};
+  };
 
 const concurrentProcessStateOrder = async (stateOrder) => {
     const { order, steps } = stateOrder;
@@ -153,7 +153,7 @@ const concurrentProcessStateOrder = async (stateOrder) => {
                     step.status = 'failed';
                     stateOrder.status = 'failed';
                     step.response = null;
-                    step.end_time = formatDate(new Date())
+                    step.end_time = new Date();
                     stateOrder.end_time = new Date();
 
                     console.log('Finished ' + stateOrder?.order_id + ' ' + stateOrder.workflow + ' with status ' + stateOrder.status);
@@ -211,7 +211,7 @@ const cacheApiCalls = async () => {
 
 const markStepAsCompleted = async (step, stateOrder) => {
     step.status = "completed";
-    step.end_time = formatDate(new Date())
+    step.end_time = new Date();
 
     // Mark workflow as completed if this is the last step
 
@@ -219,7 +219,7 @@ const markStepAsCompleted = async (step, stateOrder) => {
     // if (stateOrder.steps.every((s) => s.status === "completed")) {
     if (stateOrder.steps[stateOrder.steps.length - 1].status === "completed") {
         stateOrder.status = "completed";
-        stateOrder.end_time = formatDate(new Date())
+        stateOrder.end_time = new Date();
         console.log('Finished ' + stateOrder?.order_id + ' with status ' + stateOrder.status)
     }
     await stateOrder.save();
@@ -376,7 +376,7 @@ module.exports = {
     findAndReprocessFailedStateOrders,
     findStateOrders,
     findStateOrder,
-    pauseProcess,
+    pauseProcess, 
     resumeProcess,
     getAvailableWorkflows
 }
