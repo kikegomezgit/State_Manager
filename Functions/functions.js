@@ -285,6 +285,7 @@ const findAndReprocessFailedStateOrders = async ({ orders = [], workflow }) => {
             delete newDoc._id; // Remove `_id` to allow creation of a new document
             newDoc.status = 'pending'; // Update status
             newDoc.order_id = getIdwithConsecutive(newDoc.order_id); // Append '01' to order_id
+            newDoc.start_time = new Date().toISOString()
             // Step 2: Update the `reprocessed` field for each document to avoid duplicates on all
             StateOrder.updateOne(
                 { order_id: current_id, workflow: doc.workflow }, // Match the document by its `_id` or unique identifier
