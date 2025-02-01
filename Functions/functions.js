@@ -311,10 +311,15 @@ const functionPool = {
     }
 }
 
-const findStateOrders = async ({ pageSize, page = 1, workflow, status, notReprocessed }) => {
+const findStateOrders = async ({ pageSize, page = 1, workflow, status, notReprocessed, search }) => {
     const filter = { workflow };
+
     if (status) filter.status = status;
     if (notReprocessed) filter.reprocessed = { $ne: true };
+
+    if (search) {
+        filter.order_id = { $regex: search, $options: "i" }; // Case-insensitive search
+    }
 
     let query = StateOrder.find(filter)
         .sort({ _id: -1 })
