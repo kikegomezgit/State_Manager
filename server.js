@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 require('dotenv').config()
 const webhookRoutes = require('./routes/webhook');
 const restApiRoutes = require('./routes/restApi');
+const orderPosApiRoutes= require('./routes/orderPosApi');
 // const mongoose = require('mongoose');
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -20,6 +21,7 @@ const cronController = new CronController();
 
 app.use('/', webhookRoutes);
 app.use('/', restApiRoutes);
+app.use('/', orderPosApiRoutes);
 
 startDb()
 processStateOrders()
