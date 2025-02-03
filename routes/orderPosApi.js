@@ -3,6 +3,7 @@ const router = express.Router();
 const { validateSecret } = require('../Middlewares/tokenSecret')
 const {StateOrders } = require('../Functions/functions')
 const secret_name = 'orderPosApiToken'
+const jwt = require('jsonwebtoken');
 
 // router.get('/orders', validateSecret(secret_name), async (req, res) => {
 //     try {
