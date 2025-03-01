@@ -1,3 +1,6 @@
+# **Donations**
+if you found this repository useful you can always support me donating on any currency here: 0xD9B49CdB1af370e840c1c4257f05461be3a05Adb
+
 # **State_Manager**
 ## Pending to do chores:
     -Fix pagination
